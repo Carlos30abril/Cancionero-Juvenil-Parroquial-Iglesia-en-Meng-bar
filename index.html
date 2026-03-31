@@ -39,7 +39,7 @@
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
         #pdf-container { display: none; background: white; padding: 20px; font-family: 'Fira Code', monospace; }
         .admin-only, .instru-only { display: none; }
-        .handle { user-select: none; -webkit-user-drag: none; cursor: grab; }
+        .handle, .handle-style { user-select: none; -webkit-user-drag: none; cursor: grab; }
     </style>
 </head>
 <body class="mode-canto">
@@ -87,6 +87,14 @@
         <div id="misa-songs-order"></div>
         <div class="admin-only" style="background:#fff; padding:15px; border-radius:10px; border:1px solid #ddd; margin-top:20px;">
             <h4>Gestionar Canto</h4>
+            
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <input type="text" id="search-misa" placeholder="🔍 Buscar..." onkeyup="updateMisaSongSelector()" style="margin:0; flex:2;">
+                <select id="filter-style-misa" onchange="updateMisaSongSelector()" style="margin:0; flex:1;">
+                    <option value="Todos">Todos</option>
+                </select>
+            </div>
+
             <select id="song-to-add"></select>
             <button onclick="addSongToMisa()" class="btn btn-ok">Añadir a la lista</button>
             <button onclick="deleteMisa()" class="btn" style="color:red; background:none">Eliminar Misa</button>
@@ -129,6 +137,15 @@
         </div>
 
         <div class="admin-only" style="margin-top:30px; text-align:left; border-top:2px solid #ddd; padding-top:15px">
+            <h4>🏷️ Gestionar Estilos</h4>
+            <div style="display:flex; gap:5px; margin-bottom:15px;">
+                <input type="text" id="new-style-name" placeholder="Nuevo estilo..." style="margin:0;">
+                <button class="btn btn-ok" onclick="addStyle()" style="width:auto; margin:0;">Añadir</button>
+            </div>
+            <div id="list-styles" style="margin-bottom:20px;"></div>
+        </div>
+
+        <div class="admin-only" style="margin-top:30px; text-align:left; border-top:2px solid #ddd; padding-top:15px">
             <h4>📜 Historial de Cambios</h4>
             <div id="log-list" style="font-size:12px; color:#666; max-height:300px; overflow-y:auto; background:#fff; padding:10px; border-radius:8px; border:1px solid #eee"></div>
         </div>
@@ -164,7 +181,9 @@
     const ADMIN_PINS = { "1111": "Miguel Ángel", "2222": "Carlos" };
 
     let sortableInstance = null;
-    let songs = [], misas = [], styles = ["Entrada", "Piedad", "Gloria", "Salmo", "Aleluya", "Ofertorio", "Santo", "Paz", "Comunión", "Salida"], logs = [];
+    let sortableStyles = null; // Para arrastrar estilos
+    let songs = [], misas = [], logs = [];
+    let styles = ["Entrada", "Piedad", "Gloria", "Salmo", "Aleluya", "Ofertorio", "Santo", "Paz", "Comunión", "Salida"]; // Array por defecto
     let viewMode = 'canto', currentUser = null, currentMisaIdx = null, currentSongIdx = null;
 
     db.ref('data').on('value', snap => {
@@ -173,10 +192,13 @@
             songs=v.songs||[]; 
             misas=v.misas||[]; 
             logs=v.logs||[]; 
+            if(v.styles) styles = v.styles; // Actualizar estilos desde nube si existen
             renderSongsList(); 
             renderMisas(); 
+            updateSelects(); // Actualiza selects con los estilos traidos
             updateMisaSongSelector(); 
             if(currentMisaIdx!==null) renderMisaSongs(); 
+            if(currentUser) renderStyles(); // Actualizar lista UI de estilos
         }
     });
 
@@ -225,8 +247,11 @@
         const ops = styles.map(s => `<option value="${s}">${s}</option>`).join("");
         const fStyle = document.getElementById('f-style');
         const filterStyle = document.getElementById('filter-style');
+        const filterStyleMisa = document.getElementById('filter-style-misa');
+        
         if(fStyle) fStyle.innerHTML = ops;
         if(filterStyle) filterStyle.innerHTML = `<option value="Todos">Todos</option>` + ops;
+        if(filterStyleMisa) filterStyleMisa.innerHTML = `<option value="Todos">Todos</option>` + ops;
     }
 
     function renderSongsList() {
@@ -249,7 +274,7 @@
 
     checkSavedSession();
 
-    function sync() { db.ref('data').set({ songs, misas, logs }); }
+    function sync() { db.ref('data').set({ songs, misas, logs, styles }); }
 
     function showSection(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -353,7 +378,6 @@
         updateUI();
     }
 
-    // --- FUNCIÓN ARREGLADA ---
     function addSongToMisa() {
         const selector = document.getElementById('song-to-add');
         if(!selector || currentMisaIdx === null) return;
@@ -365,7 +389,7 @@
         
         misas[currentMisaIdx].items.push(songIdx);
         sync();
-        renderMisaSongs(); // Refrescar lista inmediatamente
+        renderMisaSongs(); 
     }
 
     function removeFromMisa(p) { misas[currentMisaIdx].items.splice(p,1); sync(); renderMisaSongs(); }
@@ -384,12 +408,87 @@
         document.querySelectorAll('.instru-only').forEach(e => e.style.display = viewMode === 'instru' ? 'inline-block' : 'none');
         document.getElementById('btn-login-admin').style.display = adm ? 'none' : 'block';
         document.getElementById('btn-logout-admin').style.display = adm ? 'block' : 'none';
-        if (adm) renderLogs();
+        if (adm) {
+            renderLogs();
+            renderStyles();
+        }
     }
     
     function updateMisaSongSelector() {
         const s = document.getElementById('song-to-add'); 
-        if(s) s.innerHTML = songs.map((x,i) => `<option value="${i}">${x.title}</option>`).join("");
+        const q = document.getElementById('search-misa') ? document.getElementById('search-misa').value.toLowerCase() : "";
+        const f = document.getElementById('filter-style-misa') ? document.getElementById('filter-style-misa').value : "Todos";
+        
+        if(s) {
+            s.innerHTML = songs.map((x,i) => {
+                const matchSearch = x.title.toLowerCase().includes(q);
+                const matchStyle = (f === "Todos" || x.style === f);
+                if (matchSearch && matchStyle) return `<option value="${i}">${x.title}</option>`;
+                return "";
+            }).join("");
+        }
+    }
+    
+    // --- GESTIÓN DE ESTILOS ---
+    function renderStyles() {
+        const container = document.getElementById('list-styles');
+        if(!container) return;
+        
+        if (sortableStyles) { sortableStyles.destroy(); sortableStyles = null; }
+        container.innerHTML = "";
+        
+        styles.forEach((style, idx) => {
+            const d = document.createElement('div');
+            d.className = 'card';
+            d.style.padding = '10px'; d.style.marginBottom = '5px';
+            d.setAttribute('data-id', idx);
+            d.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span class="handle-style" style="cursor:grab; margin-right:10px; padding:5px;">☰</span>
+                    <span>${style}</span>
+                </div>
+                <button onclick="deleteStyle(${idx})" style="color:var(--d); background:none; border:none; font-size:16px; cursor:pointer; padding:5px;">✖</button>
+            `;
+            container.appendChild(d);
+        });
+
+        if (currentUser) {
+            sortableStyles = new Sortable(container, {
+                animation: 150,
+                handle: '.handle-style',
+                delay: 100,
+                delayOnTouchOnly: true,
+                onEnd: () => {
+                    const newOrder = [];
+                    container.querySelectorAll('.card').forEach(el => {
+                        newOrder.push(styles[parseInt(el.getAttribute('data-id'))]);
+                    });
+                    styles = newOrder;
+                    sync();
+                    updateSelects(); // Refrescar los desplegables con el nuevo orden
+                }
+            });
+        }
+    }
+
+    function addStyle() {
+        const name = document.getElementById('new-style-name').value.trim();
+        if (name && !styles.includes(name)) {
+            styles.push(name);
+            document.getElementById('new-style-name').value = "";
+            sync();
+            updateSelects();
+        } else if (styles.includes(name)) {
+            alert("Este estilo ya existe.");
+        }
+    }
+
+    function deleteStyle(idx) {
+        if(confirm("¿Seguro que quieres borrar este estilo? Asegúrate de que no haya canciones usándolo.")) {
+            styles.splice(idx, 1);
+            sync();
+            updateSelects();
+        }
     }
     
     function goBack() { showSection('songs'); }
