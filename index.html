@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        * { box-sizing: border-box; } /* Esto evita que el padding "estire" las cajas hacia afuera */
+        * { box-sizing: border-box; }
         :root { --p: #2c3e50; --s: #27ae60; --a: #f39c12; --d: #e74c3c; --l: #ffffff; --bg: #f4f7f6; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #333; padding-bottom: 70px; overflow-x: hidden; }
         .logo-main { width: 140px; margin-bottom: 20px; }
@@ -38,20 +38,14 @@
         .tag { font-size: 10px; background: #e8f4f8; padding: 4px 8px; border-radius: 4px; color: var(--p); font-weight: bold; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
         #pdf-container { display: none; background: white; padding: 20px; font-family: 'Fira Code', monospace; }
-        .admin-only { display: none; }
-        .instru-only { display: none; }
-        .handle { 
-            user-select: none; 
-            -webkit-user-drag: none; 
-            cursor: grab; /* Esto añade el icono de la manita en PC */
-        }
-        
+        .admin-only, .instru-only { display: none; }
+        .handle { user-select: none; -webkit-user-drag: none; cursor: grab; }
     </style>
 </head>
 <body class="mode-canto">
 
 <div id="gatekeeper">
-    <img src= "Logo Coro Juvenil (W).svg" class="logo-main">
+    <img src="Logo Coro Juvenil (W).svg" class="logo-main">
     <h2>Cancionero Juvenil Parroquial</h2>
     <h3>Iglesia en Mengíbar</h3>
     <input type="password" id="pass-entrada" placeholder="Contraseña...">
@@ -91,10 +85,10 @@
             <button class="btn btn-action" onclick="generateMisaPDF('both')">PDF Letras</button>
         </div>
         <div id="misa-songs-order"></div>
-        <div class="admin-only" style="background:#fff; padding:15px; border-radius:10px; border:1px solid #ddd">
+        <div class="admin-only" style="background:#fff; padding:15px; border-radius:10px; border:1px solid #ddd; margin-top:20px;">
             <h4>Gestionar Canto</h4>
             <select id="song-to-add"></select>
-            <button onclick="addSongToMisa()" class="btn btn-ok">Añadir</button>
+            <button onclick="addSongToMisa()" class="btn btn-ok">Añadir a la lista</button>
             <button onclick="deleteMisa()" class="btn" style="color:red; background:none">Eliminar Misa</button>
         </div>
     </div>
@@ -151,7 +145,6 @@
 <div id="pdf-container"></div>
 
 <script>
-    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyCm_U5XkQZ5nJ-stzmIYEZXpMUUwLFf4EE",
         authDomain: "cancionero-juvenil-parroquial.firebaseapp.com",
@@ -166,29 +159,32 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- SEGURIDAD (CAMBIA ESTO) ---
-    const PASS_CANTO = "canto2026";     // <--- TU NUEVA CLAVE CANTANTES
-    const PASS_INSTRU = "instru2026";   // <--- TU NUEVA CLAVE INSTRUMENTOS
-    const ADMIN_PINS = { "1111": "Miguel Ángel", "2222": "Carlos" }; // <--- TUS PINS DE EDICIÓN
+    const PASS_CANTO = "canto2026";
+    const PASS_INSTRU = "instru2026";
+    const ADMIN_PINS = { "1111": "Miguel Ángel", "2222": "Carlos" };
 
-    let sortableInstance = null; // Para controlar que solo haya un "arrastrador" activo
+    let sortableInstance = null;
     let songs = [], misas = [], styles = ["Entrada", "Piedad", "Gloria", "Salmo", "Aleluya", "Ofertorio", "Santo", "Paz", "Comunión", "Salida"], logs = [];
     let viewMode = 'canto', currentUser = null, currentMisaIdx = null, currentSongIdx = null;
 
     db.ref('data').on('value', snap => {
-        const v = snap.val(); if(v){ songs=v.songs||[]; misas=v.misas||[]; logs=v.logs||[]; renderSongsList(); renderMisas(); updateMisaSongSelector(); if(currentMisaIdx!==null) renderMisaSongs(); }
+        const v = snap.val(); 
+        if(v){ 
+            songs=v.songs||[]; 
+            misas=v.misas||[]; 
+            logs=v.logs||[]; 
+            renderSongsList(); 
+            renderMisas(); 
+            updateMisaSongSelector(); 
+            if(currentMisaIdx!==null) renderMisaSongs(); 
+        }
     });
 
-    // --- LÓGICA DE SESIÓN (RECUERDA Y CIERRA A LAS 00:00) ---
-    function getTodayString() {
-        return new Date().toLocaleDateString(); // Devuelve la fecha actual, ej: "31/3/2026"
-    }
+    function getTodayString() { return new Date().toLocaleDateString(); }
 
     function checkSavedSession() {
         const savedMode = localStorage.getItem('coroViewMode');
         const savedDate = localStorage.getItem('coroDate');
-        
-        // Si hay sesión guardada y es del mismo día, entra directo
         if(savedMode && savedDate === getTodayString()) {
             viewMode = savedMode;
             enterApp();
@@ -211,7 +207,7 @@
     function logoutApp() {
         localStorage.removeItem('coroViewMode');
         localStorage.removeItem('coroDate');
-        location.reload(); // Recarga la página para volver a pedir contraseña
+        location.reload();
     }
 
     function enterApp() {
@@ -219,27 +215,29 @@
         document.getElementById('gatekeeper').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
         document.getElementById('nav-bar').style.display = 'flex';
-        document.getElementById('app-logo').style.display = 'block'; // Muestra el logo
+        document.getElementById('app-logo').style.display = 'block';
         document.getElementById('mode-status').innerText = "Viendo como: " + viewMode;
-        updateSelects(); updateUI();
+        updateSelects(); 
+        updateUI();
     }
 
-    // --- FILTROS Y BÚSQUEDA ---
     function updateSelects() {
         const ops = styles.map(s => `<option value="${s}">${s}</option>`).join("");
-        document.getElementById('f-style').innerHTML = ops;
-        document.getElementById('filter-style').innerHTML = `<option value="Todos">Todos</option>` + ops;
+        const fStyle = document.getElementById('f-style');
+        const filterStyle = document.getElementById('filter-style');
+        if(fStyle) fStyle.innerHTML = ops;
+        if(filterStyle) filterStyle.innerHTML = `<option value="Todos">Todos</option>` + ops;
     }
 
     function renderSongsList() {
         const q = document.getElementById('search').value.toLowerCase();
-        const f = document.getElementById('filter-style').value; // Lee el filtro
-        const list = document.getElementById('list-songs'); list.innerHTML = "";
+        const f = document.getElementById('filter-style').value;
+        const list = document.getElementById('list-songs'); 
+        list.innerHTML = "";
         
         songs.forEach((s, i) => {
             const matchSearch = s.title.toLowerCase().includes(q);
             const matchStyle = (f === "Todos" || s.style === f);
-            
             if(matchSearch && matchStyle) {
                 const d = document.createElement('div'); d.className = 'card';
                 d.innerHTML = `<b>${s.title}</b> <span class="tag">${s.style}</span>`;
@@ -249,18 +247,21 @@
         });
     }
 
-    // Ejecutamos la comprobación de sesión nada más cargar
     checkSavedSession();
 
     function sync() { db.ref('data').set({ songs, misas, logs }); }
+
     function showSection(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.getElementById('sec-' + id).classList.add('active');
         document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-        let t = id; if(id==='view-song'||id==='form-song') t='songs'; if(id==='misa-detail') t='misas';
-        document.getElementById('tab-'+t).classList.add('active');
+        let t = id; 
+        if(id==='view-song'||id==='form-song') t='songs'; 
+        if(id==='misa-detail') t='misas';
+        const tab = document.getElementById('tab-'+t);
+        if(tab) tab.classList.add('active');
+        if(id === 'misa-detail') updateMisaSongSelector();
     }
-
 
     function viewSong(i) {
         const s = songs[i];
@@ -272,41 +273,34 @@
     }
 
     function saveSong() {
-    const title = document.getElementById('f-title').value;
-    const s = { 
-        title: title, 
-        style: document.getElementById('f-style').value, 
-        cejilla: document.getElementById('f-cejilla').value, 
-        contentCanto: document.getElementById('f-content-canto').innerHTML, 
-        contentInstru: document.getElementById('f-content-instru').innerHTML 
-    };
-
-    let action = "";
-    if(currentSongIdx!==null) {
-        songs[currentSongIdx] = s;
-        action = `Editó "${title}"`;
-    } else {
-        songs.push(s);
-        action = `Creó "${title}"`;
-    }
-
-    // Registrar Log
-    logs.push({
-        user: currentUser || "Desconocido",
-        action: action,
-        date: new Date().toLocaleString()
-    });
-
-    sync(); 
-    showSection('songs');
+        const title = document.getElementById('f-title').value;
+        const s = { 
+            title: title, 
+            style: document.getElementById('f-style').value, 
+            cejilla: document.getElementById('f-cejilla').value, 
+            contentCanto: document.getElementById('f-content-canto').innerHTML, 
+            contentInstru: document.getElementById('f-content-instru').innerHTML 
+        };
+        let action = "";
+        if(currentSongIdx!==null) { songs[currentSongIdx] = s; action = `Editó "${title}"`; }
+        else { songs.push(s); action = `Creó "${title}"`; }
+        logs.push({ user: currentUser || "Desconocido", action: action, date: new Date().toLocaleString() });
+        sync(); 
+        showSection('songs');
     }
 
     function renderMisas() {
-        const l = document.getElementById('list-misas'); l.innerHTML = "";
+        const l = document.getElementById('list-misas'); 
+        l.innerHTML = "";
         misas.forEach((m, i) => {
             const d = document.createElement('div'); d.className = 'card';
             d.innerHTML = `<b>${m.name}</b> <span class="tag">${m.items?m.items.length:0} cantos</span>`;
-            d.onclick = () => { currentMisaIdx=i; document.getElementById('misa-name').innerText=m.name; renderMisaSongs(); showSection('misa-detail'); };
+            d.onclick = () => { 
+                currentMisaIdx=i; 
+                document.getElementById('misa-name').innerText=m.name; 
+                renderMisaSongs(); 
+                showSection('misa-detail'); 
+            };
             l.appendChild(d);
         });
     }
@@ -314,13 +308,7 @@
     function renderMisaSongs() {
         const c = document.getElementById('misa-songs-order');
         if (!c) return;
-    
-        // 1. Limpiar instancia previa si existe para evitar errores
-        if (sortableInstance) {
-            sortableInstance.destroy();
-            sortableInstance = null;
-        }
-
+        if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
         c.innerHTML = "";
         const m = misas[currentMisaIdx];
         if (!m || !m.items) return;
@@ -330,8 +318,7 @@
             if (!s) return;
             const d = document.createElement('div');
             d.className = 'card';
-            d.setAttribute('data-id', sIdx); // Guardamos el ID real de la canción
-
+            d.setAttribute('data-id', sIdx);
             d.innerHTML = `
                 <div style="display:flex; align-items:center;">
                     <span class="admin-only handle" style="cursor:grab; margin-right:10px; padding:5px;">☰</span>
@@ -339,225 +326,159 @@
                 </div>
                 <button class="admin-only" onclick="removeFromMisa(${pos})" style="color:var(--d); background:none; border:none; font-size:18px; padding:5px;">✖</button>
             `;
-
-            // Click para ver canción (solo si no se está arrastrando)
             d.onclick = (e) => {
-                if (e.target.classList.contains('admin-only') || e.target.tagName === 'BUTTON') return;
+                if (e.target.classList.contains('admin-only') || e.target.tagName === 'BUTTON' || e.target.classList.contains('handle')) return;
                 currentSongIdx = sIdx;
                 viewSong(sIdx);
             };
             c.appendChild(d);
         });
 
-        // 2. Inicializar Sortable solo si es Admin
         if (currentUser) {
             sortableInstance = new Sortable(c, {
                 animation: 150,
-                handle: '.handle', // Usamos una clase específica para el tirador
-                delay: 100,       // Importante para que en móvil no se confunda con scroll
+                handle: '.handle',
+                delay: 100,
                 delayOnTouchOnly: true,
                 onEnd: () => {
-                    // Re-calculamos el orden leyendo los IDs de los elementos actuales
                     const newOrder = [];
                     c.querySelectorAll('.card').forEach(el => {
                         newOrder.push(parseInt(el.getAttribute('data-id')));
                     });
                     misas[currentMisaIdx].items = newOrder;
-                    sync(); // Guardamos en Firebase
+                    sync();
                 }
             });
         }
-    
-        // Asegurar que se vean o no los iconos tras renderizar
         updateUI();
     }
 
-    function addSongToMisa() { misas[currentMisaIdx].items.push(parseInt(document.getElementById('song-to-add').value)); sync(); }
-    function removeFromMisa(p) { misas[currentMisaIdx].items.splice(p,1); sync(); }
-    function createNewMisa() { const n = prompt("Nombre:"); if(n){ misas.push({name:n, items:[]}); sync(); } }
-    function deleteMisa() { if(confirm("¿Borrar?")){ misas.splice(currentMisaIdx, 1); sync(); showSection('misas'); } }
+    // --- FUNCIÓN ARREGLADA ---
+    function addSongToMisa() {
+        const selector = document.getElementById('song-to-add');
+        if(!selector || currentMisaIdx === null) return;
+        
+        const songIdx = parseInt(selector.value);
+        if(isNaN(songIdx)) return;
 
-    function loginAdmin() { const p = prompt("PIN:"); if(ADMIN_PINS[p]){ currentUser=ADMIN_PINS[p]; updateUI(); } }
+        if(!misas[currentMisaIdx].items) misas[currentMisaIdx].items = [];
+        
+        misas[currentMisaIdx].items.push(songIdx);
+        sync();
+        renderMisaSongs(); // Refrescar lista inmediatamente
+    }
+
+    function removeFromMisa(p) { misas[currentMisaIdx].items.splice(p,1); sync(); renderMisaSongs(); }
+    function createNewMisa() { const n = prompt("Nombre de la Misa:"); if(n){ misas.push({name:n, items:[]}); sync(); } }
+    function deleteMisa() { if(confirm("¿Borrar esta misa?")){ misas.splice(currentMisaIdx, 1); sync(); showSection('misas'); } }
+
+    function loginAdmin() { const p = prompt("PIN de Edición:"); if(ADMIN_PINS[p]){ currentUser=ADMIN_PINS[p]; updateUI(); } else { alert("PIN incorrecto"); } }
     function logoutAdmin() { currentUser=null; updateUI(); }
     
     function updateUI() {
         const adm = currentUser !== null;
-
-        // Control de visibilidad de elementos admin
         document.querySelectorAll('.admin-only').forEach(e => {
-            // Si es el icono ☰ usamos inline-block, si no block
             if(e.tagName === 'SPAN') e.style.display = adm ? 'inline-block' : 'none';
             else e.style.display = adm ? 'block' : 'none';
         });
-
         document.querySelectorAll('.instru-only').forEach(e => e.style.display = viewMode === 'instru' ? 'inline-block' : 'none');
-
         document.getElementById('btn-login-admin').style.display = adm ? 'none' : 'block';
         document.getElementById('btn-logout-admin').style.display = adm ? 'block' : 'none';
-
-        // REFRESCAR LA LISTA DE LA MISA si estamos en ella para activar Sortable
-        // Pero evitamos bucles infinitos comprobando si el contenedor existe y está visible
-        const detailSec = document.getElementById('sec-misa-detail');
-        if (adm && detailSec.classList.contains('active')) {
-            // Solo reinicializamos si no hay instancia o cambió el usuario
-            if(!sortableInstance) renderMisaSongs();
-        }
-
         if (adm) renderLogs();
     }
     
     function updateMisaSongSelector() {
-        const s = document.getElementById('song-to-add'); if(s) s.innerHTML = songs.map((x,i) => `<option value="${i}">${x.title}</option>`).join("");
+        const s = document.getElementById('song-to-add'); 
+        if(s) s.innerHTML = songs.map((x,i) => `<option value="${i}">${x.title}</option>`).join("");
     }
+    
     function goBack() { showSection('songs'); }
 
-    // --- PDF ENGINE ---
-    const opt = { margin: 10, filename: 'coro.pdf', html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    // --- PDF ---
+    const optPDF = { margin: 10, filename: 'coro.pdf', html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
     function buildHTML(s) {
         let c = viewMode==='instru' ? (s.contentInstru||s.contentCanto) : s.contentCanto;
         return `<div style="page-break-inside:avoid"><h2>${s.title}</h2><p>${s.style}</p><div style="white-space:pre-wrap; font-family:monospace">${c}</div></div><hr>`;
     }
     function downloadSinglePDF() {
         const p = document.getElementById('pdf-container'); p.innerHTML = buildHTML(songs[currentSongIdx]);
-        p.style.display='block'; html2pdf().set(opt).from(p).save().then(()=>p.style.display='none');
+        p.style.display='block'; html2pdf().set(optPDF).from(p).save().then(()=>p.style.display='none');
     }
     function generateMisaPDF(type) {
         const p = document.getElementById('pdf-container'); let h = `<h1>${misas[currentMisaIdx].name}</h1>`;
         if(type==='list' || type==='both') h += "<ul>" + misas[currentMisaIdx].items.map(i=>`<li>${songs[i].title}</li>`).join("") + "</ul>";
         if(type==='both') { h += "<div style='page-break-after:always'></div>"; misas[currentMisaIdx].items.forEach(i=> h+=buildHTML(songs[i])); }
-        p.innerHTML = h; p.style.display='block'; html2pdf().set(opt).from(p).save().then(()=>p.style.display='none');
+        p.innerHTML = h; p.style.display='block'; html2pdf().set(optPDF).from(p).save().then(()=>p.style.display='none');
     }
 
     async function generateAllPDF() {
         const p = document.getElementById('pdf-container'); 
-        
-        // 1. Ordenar Canciones por Estilo (según tu array 'styles') y luego alfabéticamente
         let contentSongs = [...songs].sort((a, b) => {
             let styleDiff = styles.indexOf(a.style) - styles.indexOf(b.style);
-            if (styleDiff !== 0) return styleDiff; // Primero por estilo
-            return a.title.localeCompare(b.title); // Segundo por título
+            if (styleDiff !== 0) return styleDiff;
+            return a.title.localeCompare(b.title);
         });
-
-        // 2. Asignar un "Número de Canto" definitivo basado en este orden
         contentSongs.forEach((s, index) => s.numeroCanto = index + 1);
-
-        // 3. Crear el Índice Alfabético Puro
         let indexSongs = [...contentSongs].sort((a,b) => a.title.localeCompare(b.title));
-        let h = `<div style="text-align:center; margin-bottom:30px;">
-                    <h1>Cancionero Juvenil</h1>
-                    <p>Coro Parroquial Mengíbar</p>
-                 </div>
-                 <h2>Índice Alfabético</h2>
-                 <ul style="column-count: 2; font-size: 14px; line-height: 1.8; list-style-type: none; padding: 0;">`;
-        
-        indexSongs.forEach(s => {
-            // Se muestra el Título y al lado, en negrita, el número de canto
-            h += `<li><b>${s.numeroCanto}.</b> ${s.title} <span style="color:#888; font-size:10px;">(${s.style})</span></li>`;
-        });
-        h += `</ul><div style="page-break-after:always"></div>`; // Salto de página
-
-        // 4. Generar el contenido de las canciones
+        let h = `<div style="text-align:center; margin-bottom:30px;"><h1>Cancionero Juvenil</h1><p>Coro Parroquial Mengíbar</p></div><h2>Índice Alfabético</h2><ul style="column-count: 2; font-size: 14px; line-height: 1.8; list-style-type: none; padding: 0;">`;
+        indexSongs.forEach(s => { h += `<li><b>${s.numeroCanto}.</b> ${s.title} <span style="color:#888; font-size:10px;">(${s.style})</span></li>`; });
+        h += `</ul><div style="page-break-after:always"></div>`;
         let currentStyle = "";
         contentSongs.forEach(s => {
             let pageBreak = "";
-            if (s.style !== currentStyle) {
-                if (currentStyle !== "") pageBreak = `<div style="page-break-before:always"></div>`;
-                currentStyle = s.style;
-            }
-
+            if (s.style !== currentStyle) { if (currentStyle !== "") pageBreak = `<div style="page-break-before:always"></div>`; currentStyle = s.style; }
             let c = viewMode==='instru' ? (s.contentInstru||s.contentCanto) : s.contentCanto;
-            
-            h += `${pageBreak}
-                  <div style="page-break-inside:avoid; position:relative; margin-bottom:40px;">
-                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--p); padding-bottom:5px; margin-bottom:15px;">
-                         <span style="font-weight:bold; color:#666; text-transform:uppercase; font-size:12px;">${s.style}</span>
-                         <img src="Logo Coro Juvenil (W).svg" style="height:30px;">
-                     </div>
-                     <h2 style="margin-top:0;"><span style="color:var(--s);">${s.numeroCanto}.</span> ${s.title}</h2>
-                     <div style="white-space:pre-wrap; font-family:'Fira Code', monospace;">${c}</div>
-                  </div>`;
+            h += `${pageBreak}<div style="page-break-inside:avoid; position:relative; margin-bottom:40px;"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--p); padding-bottom:5px; margin-bottom:15px;"><span style="font-weight:bold; color:#666; text-transform:uppercase; font-size:12px;">${s.style}</span></div><h2 style="margin-top:0;"><span style="color:var(--s);">${s.numeroCanto}.</span> ${s.title}</h2><div style="white-space:pre-wrap; font-family:'Fira Code', monospace;">${c}</div></div>`;
         });
-
-        p.innerHTML = h; 
-        p.style.display='block'; 
-
-        // 5. Configuración avanzada del PDF (Márgenes y paginación)
-        const opt = { 
-            margin: [15, 15, 20, 15], 
-            filename: 'Cancionero_Coro_Mengibar.pdf', 
-            html2canvas: { scale: 2 }, 
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
-        };
-
-        // Generamos el PDF e inyectamos los números de página al pie
+        p.innerHTML = h; p.style.display='block';
+        const opt = { margin: [15, 15, 20, 15], filename: 'Cancionero_Mengibar.pdf', html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
         html2pdf().set(opt).from(p).toPdf().get('pdf').then(function (pdf) {
             const totalPages = pdf.internal.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(10);
-                pdf.setTextColor(150);
-                pdf.text('Página ' + i, 105, 287, { align: 'center' });
-            }
+            for (let i = 1; i <= totalPages; i++) { pdf.setPage(i); pdf.setFontSize(10); pdf.setTextColor(150); pdf.text('Página ' + i, 105, 287, { align: 'center' }); }
         }).save().then(() => p.style.display='none');
     }
 
-    
     function openSongForm(i=null) {
         currentSongIdx = i;
         if(i!==null){
-            const s = songs[i]; document.getElementById('f-title').value=s.title; document.getElementById('f-cejilla').value=s.cejilla;
-            document.getElementById('f-content-canto').innerHTML=s.contentCanto; document.getElementById('f-content-instru').innerHTML=s.contentInstru;
+            const s = songs[i]; 
+            document.getElementById('f-title').value=s.title; 
+            document.getElementById('f-cejilla').value=s.cejilla;
+            document.getElementById('f-content-canto').innerHTML=s.contentCanto; 
+            document.getElementById('f-content-instru').innerHTML=s.contentInstru;
         } else {
-            document.getElementById('f-title').value=""; document.getElementById('f-cejilla').value=0;
-            document.getElementById('f-content-canto').innerHTML=""; document.getElementById('f-content-instru').innerHTML="";
+            document.getElementById('f-title').value=""; 
+            document.getElementById('f-cejilla').value=0;
+            document.getElementById('f-content-canto').innerHTML=""; 
+            document.getElementById('f-content-instru').innerHTML="";
         }
         showSection('form-song');
     }
     
     function editSong() { openSongForm(currentSongIdx); }
 
-    // Función para mostrar los logs en la UI
     function renderLogs() {
-    const container = document.getElementById('log-list');
-    if(!container) return;
-    container.innerHTML = logs.slice(-15).reverse().map(l => 
-        `<div style="margin-bottom:5px; border-bottom:1px solid #ddd; padding-bottom:3px">
-            <b>${l.user}</b>: ${l.action} <br> <small>${l.date}</small>
-        </div>`
-    ).join("");
+        const container = document.getElementById('log-list');
+        if(!container) return;
+        container.innerHTML = logs.slice(-15).reverse().map(l => `<div style="margin-bottom:5px; border-bottom:1px solid #ddd; padding-bottom:3px"><b>${l.user}</b>: ${l.action} <br> <small>${l.date}</small></div>`).join("");
     }
 
     function deleteSong() {
-    if(currentSongIdx === null) return;
-    
-    if(confirm("¿Estás SEGURO de eliminar esta canción? Se quitará de todas las misas donde aparezca.")) {
-        const deletedIdx = currentSongIdx;
-        
-        // 1. Registrar en el log
-        logs.push({
-            user: currentUser,
-            action: `Eliminó "${songs[deletedIdx].title}"`,
-            date: new Date().toLocaleString()
-        });
-
-        // 2. Limpiar las misas (quitar la canción y ajustar índices superiores)
-        misas.forEach(m => {
-            if(m.items) {
-                // Quitamos la canción de la lista
-                m.items = m.items.filter(id => id !== deletedIdx);
-                // Bajamos un número a los IDs que eran mayores al borrado para que no se descuadren
-                m.items = m.items.map(id => id > deletedIdx ? id - 1 : id);
-            }
-        });
-
-        // 3. Eliminar del array principal
-        songs.splice(deletedIdx, 1);
-        
-        sync();
-        showSection('songs');
+        if(currentSongIdx === null) return;
+        if(confirm("¿Estás SEGURO de eliminar esta canción?")) {
+            const deletedIdx = currentSongIdx;
+            logs.push({ user: currentUser, action: `Eliminó "${songs[deletedIdx].title}"`, date: new Date().toLocaleString() });
+            misas.forEach(m => {
+                if(m.items) {
+                    m.items = m.items.filter(id => id !== deletedIdx);
+                    m.items = m.items.map(id => id > deletedIdx ? id - 1 : id);
+                }
+            });
+            songs.splice(deletedIdx, 1);
+            sync();
+            showSection('songs');
         }
     }
-    
 </script>
 </body>
 </html>
