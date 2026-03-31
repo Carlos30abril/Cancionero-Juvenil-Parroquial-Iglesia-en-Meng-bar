@@ -15,8 +15,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
+        * { box-sizing: border-box; } /* Esto evita que el padding "estire" las cajas hacia afuera */
         :root { --p: #2c3e50; --s: #27ae60; --a: #f39c12; --d: #e74c3c; --l: #ffffff; --bg: #f4f7f6; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #333; padding-bottom: 70px; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #333; padding-bottom: 70px; overflow-x: hidden; }
         .logo-main { width: 140px; margin-bottom: 20px; }
         #gatekeeper { position: fixed; inset: 0; background: #840202 ; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; text-align: center; }
         nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; z-index: 500; height: 65px; }
@@ -120,15 +121,17 @@
         <h3>⚙️ Ajustes</h3>
         <p id="mode-status"></p>
         <button onclick="logoutApp()" class="btn btn-cancel" style="border: 1px solid #ccc; margin-bottom: 20px;">🚪 Cerrar Sesión</button>
+    
         <div class="instru-only">
             <button onclick="loginAdmin()" id="btn-login-admin" class="btn btn-ok">Modo Edición</button>
             <button onclick="logoutAdmin()" id="btn-logout-admin" class="btn btn-cancel" style="display:none">Cerrar Edición</button>
         </div>
-    </div>
 
-    <div class="admin-only" style="margin-top:20px; text-align:left; border-top:1px solid #ccc; pt-15px">
-    <h4>📜 Historial (Últimos 15)</h4>
-    <div id="log-list" style="font-size:12px; color:#666; max-height:200px; overflow-y:auto; background:#eee; padding:10px; border-radius:8px"></div>
+        <div class="admin-only" style="margin-top:30px; text-align:left; border-top:2px solid #ddd; padding-top:15px">
+            <h4>📜 Historial de Cambios</h4>
+            <div id="log-list" style="font-size:12px; color:#666; max-height:300px; overflow-y:auto; background:#fff; padding:10px; border-radius:8px; border:1px solid #eee"></div>
+        </div>
+    </div>
 
 </div>
     
@@ -345,12 +348,23 @@
 
     function loginAdmin() { const p = prompt("PIN:"); if(ADMIN_PINS[p]){ currentUser=ADMIN_PINS[p]; updateUI(); } }
     function logoutAdmin() { currentUser=null; updateUI(); }
+    
     function updateUI() {
         const adm = currentUser !== null;
-        document.querySelectorAll('.admin-only').forEach(e => e.style.display = adm ? 'block' : 'none');
+    
+        // Mostramos/ocultamos elementos de admin
+        document.querySelectorAll('.admin-only').forEach(e => {
+            // Usamos flex o block según el elemento, pero lo importante es el adm
+            e.style.display = adm ? 'block' : 'none';
+        });
+
         document.querySelectorAll('.instru-only').forEach(e => e.style.display = viewMode==='instru' ? 'inline-block' : 'none');
+    
         document.getElementById('btn-login-admin').style.display = adm ? 'none' : 'block';
         document.getElementById('btn-logout-admin').style.display = adm ? 'block' : 'none';
+
+        // SIEMPRE que actualizamos la UI, redibujamos los logs por si hay nuevos
+        if(adm) renderLogs();
     }
     
     function updateMisaSongSelector() {
