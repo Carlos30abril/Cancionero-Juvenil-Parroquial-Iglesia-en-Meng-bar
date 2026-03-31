@@ -85,6 +85,7 @@
         <div id="list-misas"></div>
         <button class="admin-only btn btn-ok" onclick="createNewMisa()">+ Crear Misa</button>
     </div>
+</div>
 
     <div id="sec-misa-detail" class="section">
         <button onclick="showSection('misas')" class="btn btn-cancel" style="width:auto">⬅ Volver</button>
@@ -332,8 +333,18 @@
     async function generateAllPDF() {
         const p = document.getElementById('pdf-container'); 
         
-        // 1. Crear el Índice Alfabético Puro
-        let indexSongs = [...songs].sort((a,b) => a.title.localeCompare(b.title));
+        // 1. Ordenar Canciones por Estilo (según tu array 'styles') y luego alfabéticamente
+        let contentSongs = [...songs].sort((a, b) => {
+            let styleDiff = styles.indexOf(a.style) - styles.indexOf(b.style);
+            if (styleDiff !== 0) return styleDiff; // Primero por estilo
+            return a.title.localeCompare(b.title); // Segundo por título
+        });
+
+        // 2. Asignar un "Número de Canto" definitivo basado en este orden
+        contentSongs.forEach((s, index) => s.numeroCanto = index + 1);
+
+        // 3. Crear el Índice Alfabético Puro
+        let indexSongs = [...contentSongs].sort((a,b) => a.title.localeCompare(b.title));
         let h = `<div style="text-align:center; margin-bottom:30px;">
                     <h1>Cancionero Juvenil</h1>
                     <p>Coro Parroquial Mengíbar</p>
@@ -342,21 +353,14 @@
                  <ul style="column-count: 2; font-size: 14px; line-height: 1.8; list-style-type: none; padding: 0;">`;
         
         indexSongs.forEach(s => {
-            h += `<li>• ${s.title} <span style="color:#888; font-size:10px;">(${s.style})</span></li>`;
+            // Se muestra el Título y al lado, en negrita, el número de canto
+            h += `<li><b>${s.numeroCanto}.</b> ${s.title} <span style="color:#888; font-size:10px;">(${s.style})</span></li>`;
         });
         h += `</ul><div style="page-break-after:always"></div>`; // Salto de página
 
-        // 2. Ordenar Canciones por Estilo (según tu array 'styles') y luego alfabéticamente
-        let contentSongs = [...songs].sort((a, b) => {
-            let styleDiff = styles.indexOf(a.style) - styles.indexOf(b.style);
-            if (styleDiff !== 0) return styleDiff; // Primero por estilo
-            return a.title.localeCompare(b.title); // Segundo por título
-        });
-
-        // 3. Generar el contenido de las canciones
+        // 4. Generar el contenido de las canciones
         let currentStyle = "";
         contentSongs.forEach(s => {
-            // Si cambiamos de estilo, forzamos que empiece en una página nueva
             let pageBreak = "";
             if (s.style !== currentStyle) {
                 if (currentStyle !== "") pageBreak = `<div style="page-break-before:always"></div>`;
@@ -371,7 +375,7 @@
                          <span style="font-weight:bold; color:#666; text-transform:uppercase; font-size:12px;">${s.style}</span>
                          <img src="Logo Coro Juvenil (W).svg" style="height:30px;">
                      </div>
-                     <h2 style="margin-top:0;">${s.title}</h2>
+                     <h2 style="margin-top:0;"><span style="color:var(--s);">${s.numeroCanto}.</span> ${s.title}</h2>
                      <div style="white-space:pre-wrap; font-family:'Fira Code', monospace;">${c}</div>
                   </div>`;
         });
@@ -379,27 +383,27 @@
         p.innerHTML = h; 
         p.style.display='block'; 
 
-        // 4. Configuración avanzada del PDF (Márgenes y paginación)
+        // 5. Configuración avanzada del PDF (Márgenes y paginación)
         const opt = { 
-            margin: [15, 15, 20, 15], // Arriba, Izquierda, Abajo, Derecha
+            margin: [15, 15, 20, 15], 
             filename: 'Cancionero_Coro_Mengibar.pdf', 
             html2canvas: { scale: 2 }, 
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
         };
 
-        // Generamos el PDF y usamos la promesa de jsPDF para inyectar los números de página
+        // Generamos el PDF e inyectamos los números de página al pie
         html2pdf().set(opt).from(p).toPdf().get('pdf').then(function (pdf) {
             const totalPages = pdf.internal.getNumberOfPages();
             for (let i = 1; i <= totalPages; i++) {
                 pdf.setPage(i);
                 pdf.setFontSize(10);
                 pdf.setTextColor(150);
-                // Inyectar "Página X" centrado abajo
                 pdf.text('Página ' + i, 105, 287, { align: 'center' });
             }
         }).save().then(() => p.style.display='none');
     }
 
+    
     function openSongForm(i=null) {
         currentSongIdx = i;
         if(i!==null){
