@@ -38,7 +38,8 @@
         .tag { font-size: 10px; background: #e8f4f8; padding: 4px 8px; border-radius: 4px; color: var(--p); font-weight: bold; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
         #pdf-container { display: none; background: white; padding: 20px; font-family: 'Fira Code', monospace; }
-        .admin-only, .instru-only { display: none; }
+        .admin-only { display: none; }, .instru-only { display: none; }
+        .handle { user-select: none; -webkit-user-drag: none; }
     </style>
 </head>
 <body class="mode-canto">
@@ -164,6 +165,7 @@
     const PASS_INSTRU = "instru2026";   // <--- TU NUEVA CLAVE INSTRUMENTOS
     const ADMIN_PINS = { "1111": "Miguel Ángel", "2222": "Carlos" }; // <--- TUS PINS DE EDICIÓN
 
+    let sortableInstance = null; // Para controlar que solo haya un "arrastrador" activo
     let songs = [], misas = [], styles = ["Entrada", "Piedad", "Gloria", "Salmo", "Aleluya", "Ofertorio", "Santo", "Paz", "Comunión", "Salida"], logs = [];
     let viewMode = 'canto', currentUser = null, currentMisaIdx = null, currentSongIdx = null;
 
@@ -304,41 +306,64 @@
     }
 
     function renderMisaSongs() {
-    const c = document.getElementById('misa-songs-order'); 
-    c.innerHTML = "";
-    const m = misas[currentMisaIdx]; 
-    if(!m.items) m.items = [];
+        const c = document.getElementById('misa-songs-order');
+        if (!c) return;
+    
+        // 1. Limpiar instancia previa si existe para evitar errores
+        if (sortableInstance) {
+            sortableInstance.destroy();
+            sortableInstance = null;
+        }
 
-    m.items.forEach((sIdx, pos) => {
-        const s = songs[sIdx]; 
-        if(!s) return;
-        const d = document.createElement('div'); 
-        d.className = 'card';
-        // Añadimos un atributo de datos para que Sortable sepa qué índice es
-        d.setAttribute('data-id', pos); 
-        d.innerHTML = `<div><span class="admin-only" style="cursor:grab; margin-right:10px;">☰</span> • ${s.title}</div>
-                       <button class="admin-only" onclick="removeFromMisa(${pos})" style="color:red; background:none; border:none; font-size:18px">✖</button>`;
-        d.onclick = (e) => { if(e.target.tagName!=='BUTTON' && e.target.innerText !== '☰') { currentSongIdx=sIdx; viewSong(sIdx); }};
-        c.appendChild(d);
-    });
+        c.innerHTML = "";
+        const m = misas[currentMisaIdx];
+        if (!m || !m.items) return;
 
-    // --- ACTIVAR ARRASTRAR Y SOLTAR ---
-    if(currentUser) { // Solo si es admin
-        new Sortable(c, {
-            animation: 150,
-            handle: '.admin-only', // Se arrastra desde el icono ☰
-            onEnd: () => {
-                const newOrder = [];
-                // Re-calculamos el orden basado en cómo han quedado los elementos
-                c.querySelectorAll('.card').forEach(el => {
-                    const oldPos = el.getAttribute('data-id');
-                    newOrder.push(m.items[oldPos]);
-                });
-                misas[currentMisaIdx].items = newOrder;
-                sync(); // Guardamos en Firebase
+        m.items.forEach((sIdx, pos) => {
+            const s = songs[sIdx];
+            if (!s) return;
+            const d = document.createElement('div');
+            d.className = 'card';
+            d.setAttribute('data-id', sIdx); // Guardamos el ID real de la canción
+
+            d.innerHTML = 
+                <div style="display:flex; align-items:center;">
+                    <span class="admin-only handle" style="cursor:grab; margin-right:10px; padding:5px;">☰</span>
+                    <span>${s.title}</span>
+                </div>
+                <button class="admin-only" onclick="removeFromMisa(${pos})" style="color:var(--d); background:none; border:none; font-size:18px; padding:5px;">✖</button>
+            ;
+
+            // Click para ver canción (solo si no se está arrastrando)
+            d.onclick = (e) => {
+                if (e.target.classList.contains('admin-only') || e.target.tagName === 'BUTTON') return;
+                currentSongIdx = sIdx;
+                viewSong(sIdx);
+            };
+            c.appendChild(d);
+        });
+
+        // 2. Inicializar Sortable solo si es Admin
+        if (currentUser) {
+            sortableInstance = new Sortable(c, {
+                animation: 150,
+                handle: '.handle', // Usamos una clase específica para el tirador
+                delay: 100,       // Importante para que en móvil no se confunda con scroll
+                delayOnTouchOnly: true,
+                onEnd: () => {
+                    // Re-calculamos el orden leyendo los IDs de los elementos actuales
+                    const newOrder = [];
+                    c.querySelectorAll('.card').forEach(el => {
+                        newOrder.push(parseInt(el.getAttribute('data-id')));
+                    });
+                    misas[currentMisaIdx].items = newOrder;
+                    sync(); // Guardamos en Firebase
                 }
             });
         }
+    
+        // Asegurar que se vean o no los iconos tras renderizar
+        updateUI();
     }
 
     function addSongToMisa() { misas[currentMisaIdx].items.push(parseInt(document.getElementById('song-to-add').value)); sync(); }
@@ -351,20 +376,28 @@
     
     function updateUI() {
         const adm = currentUser !== null;
-    
-        // Mostramos/ocultamos elementos de admin
+
+        // Control de visibilidad de elementos admin
         document.querySelectorAll('.admin-only').forEach(e => {
-            // Usamos flex o block según el elemento, pero lo importante es el adm
-            e.style.display = adm ? 'block' : 'none';
+            // Si es el icono ☰ usamos inline-block, si no block
+            if(e.tagName === 'SPAN') e.style.display = adm ? 'inline-block' : 'none';
+            else e.style.display = adm ? 'block' : 'none';
         });
 
-        document.querySelectorAll('.instru-only').forEach(e => e.style.display = viewMode==='instru' ? 'inline-block' : 'none');
-    
+        document.querySelectorAll('.instru-only').forEach(e => e.style.display = viewMode === 'instru' ? 'inline-block' : 'none');
+
         document.getElementById('btn-login-admin').style.display = adm ? 'none' : 'block';
         document.getElementById('btn-logout-admin').style.display = adm ? 'block' : 'none';
 
-        // SIEMPRE que actualizamos la UI, redibujamos los logs por si hay nuevos
-        if(adm) renderLogs();
+        // REFRESCAR LA LISTA DE LA MISA si estamos en ella para activar Sortable
+        // Pero evitamos bucles infinitos comprobando si el contenedor existe y está visible
+        const detailSec = document.getElementById('sec-misa-detail');
+        if (adm && detailSec.classList.contains('active')) {
+            // Solo reinicializamos si no hay instancia o cambió el usuario
+            if(!sortableInstance) renderMisaSongs();
+        }
+
+        if (adm) renderLogs();
     }
     
     function updateMisaSongSelector() {
