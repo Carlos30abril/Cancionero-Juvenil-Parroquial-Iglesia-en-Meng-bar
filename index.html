@@ -41,7 +41,18 @@
         .btn-cancel { background: #eee; color: #555; }
         .tag { font-size: 10px; background: #e8f4f8; padding: 4px 8px; border-radius: 4px; color: var(--p); font-weight: bold; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
-        #pdf-container { display: none; background: white; padding: 20px; font-family: 'Fira Code', monospace; }
+        #pdf-container { 
+            display: none; 
+            background: white !important; /* Forzamos fondo blanco */
+            color: black !important;      /* Forzamos texto negro */
+            padding: 20px; 
+            font-family: 'Fira Code', monospace; 
+        }
+        /* Añade esto para asegurar que dentro del PDF todo sea negro */
+        #pdf-container * {
+            color: black !important;
+            background: transparent !important;
+        }
         .admin-only, .instru-only { display: none; }
         .handle, .handle-style { user-select: none; -webkit-user-drag: none; cursor: grab; }
 
@@ -58,19 +69,6 @@
         body.dark-mode #log-list, 
 
         
-        body.dark-mode #pdf-container { 
-            display: none; 
-            background: white !important; /* Forzamos fondo blanco */
-            color: black !important;      /* Forzamos texto negro */
-            padding: 20px; 
-            font-family: 'Fira Code', monospace; 
-        }
-        /* Añade esto para asegurar que dentro del PDF todo sea negro */
-        body.dark-mode #pdf-container * {
-            color: black !important;
-            background: transparent !important;
-        }
-
         
         body.dark-mode .admin-only[style*="background:#fff"] { background: #1e1e1e !important; border-color: #333 !important; }
         body.dark-mode input, 
